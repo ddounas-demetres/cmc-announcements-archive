@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Στατιστικά Ανακοινώσεων — Τμήμα Επικοινωνίας, Μέσων και Πολιτισμού</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #0B1F3A;
+    --navy-dark: #081525;
+    --gold: #C9A227;
+    --gold-light: #E4C766;
+    --teal: #1B6B63;
+    --bg: #F5F6F8;
+    --card-bg: #FFFFFF;
+    --text: #1A1A1A;
+    --text-secondary: #6B6B6B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 20px 20px 18px;
+    text-align: center;
+  }
+  header .eyebrow {
+    color: var(--gold-light);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .summary-card .number {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--navy);
+  }
+  .summary-card .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+  .chart-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .chart-card h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    color: var(--navy);
+  }
+  .chart-card .note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0 0 14px;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 320px;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 720px) {
+    .two-col { grid-template-columns: 1.4fr 1fr; }
+  }
+  #status {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px 20px;
+  }
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 10px 20px 30px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181f;
+      --card-bg: #1d222c;
+      --text: #eef0f3;
+      --text-secondary: #9aa3b2;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Τμήμα Επικοινωνίας, Μέσων και Πολιτισμού · Πάντειο Πανεπιστήμιο</p>
+  <h1>📊 Στατιστικά Αρχείου Ανακοινώσεων</h1>
+</header>
+
+<main>
+  <div id="status">Φόρτωση δεδομένων…</div>
+  <div id="content" style="display:none;">
+
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="chart-card">
+      <h2>Ανακοινώσεις ανά μήνα και κατηγορία</h2>
+      <p class="note">Αφορά μόνο τις κατηγορίες με διαθέσιμη ημερομηνία δημοσίευσης στον ιστότοπο (Ανακοινώσεις Προπτυχιακού / Μεταπτυχιακού). Η κατηγορία "Νέα του Τμήματος" δεν δημοσιεύει ημερομηνία ανά ανάρτηση στο site.</p>
+      <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+    </div>
+
+    <div class="two-col">
+      <div class="chart-card">
+        <h2>Σωρευτικό μέγεθος αρχείου με τον καιρό</h2>
+        <p class="note">Πόσες αναρτήσεις έχει καταγράψει συνολικά το σύστημα, ανά ημέρα αρχειοθέτησης.</p>
+        <div class="chart-wrap"><canvas id="cumulativeChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>Κατανομή ανά κατηγορία</h2>
+        <p class="note">Σύνολο καταγεγραμμένων αναρτήσεων ανά κατηγορία.</p>
+        <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  Δεδομένα από <code>archive.csv</code> — ενημερώνεται αυτόματα καθημερινά μέσω GitHub Actions.
+</footer>
+
+<script>
+const CATEGORY_COLORS = {
+  "Ανακοινώσεις Προπτυχιακού": "#0B1F3A",
+  "Ανακοινώσεις Μεταπτυχιακού": "#1B6B63",
+  "Νέα του Τμήματος": "#B8860B"
+};
+const CATEGORY_ORDER = Object.keys(CATEGORY_COLORS);
+
+const GREEK_MONTHS_SHORT = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μάι", "Ιουν", "Ιουλ", "Αυγ", "Σεπ", "Οκτ", "Νοε", "Δεκ"];
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n') { row.push(field); field = ""; rows.push(row); row = []; }
+      else if (c === '\r') { /* skip */ }
+      else { field += c; }
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const headers = rows.shift();
+  return rows
+    .filter(r => r.length === headers.length)
+    .map(r => Object.fromEntries(headers.map((h, idx) => [h, r[idx]])));
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split("-");
+  return GREEK_MONTHS_SHORT[parseInt(m, 10) - 1] + " " + y;
+}
+
+function setStatus(msg) {
+  document.getElementById("status").textContent = msg;
+}
+
+async function main() {
+  let text;
+  try {
+    const res = await fetch("archive.csv", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    text = await res.text();
+  } catch (err) {
+    setStatus("Δεν ήταν δυνατή η φόρτωση του archive.csv (" + err.message + "). Βεβαιωθείτε ότι αυτό το αρχείο βρίσκεται στον ίδιο φάκελο.");
+    return;
+  }
+
+  const rows = parseCSV(text);
+  if (!rows.length) {
+    setStatus("Το archive.csv δεν περιέχει ακόμη δεδομένα.");
+    return;
+  }
+
+  // ---- Summary cards ----
+  const total = rows.length;
+  const categoriesPresent = [...new Set(rows.map(r => r.category))];
+  const archivedDates = rows.map(r => r.archived_on).filter(Boolean).sort();
+  const lastUpdate = archivedDates.length ? archivedDates[archivedDates.length - 1] : "—";
+  const publishedDates = rows.map(r => r.published_date).filter(Boolean).sort();
+  const earliest = publishedDates.length ? publishedDates[0] : (archivedDates[0] || "—");
+
+  const summaryGrid = document.getElementById("summaryGrid");
+  const cards = [
+    { number: total, label: "Σύνολο ανακοινώσεων" },
+    { number: categoriesPresent.length, label: "Κατηγορίες" },
+    { number: earliest, label: "Παλαιότερη καταγραφή" },
+    { number: lastUpdate, label: "Τελευταία ενημέρωση" },
+  ];
+  summaryGrid.innerHTML = cards.map(c =>
+    `<div class="summary-card"><div class="number">${c.number}</div><div class="label">${c.label}</div></div>`
+  ).join("");
+
+  // ---- Monthly chart (only rows with a real published_date) ----
+  const monthly = {}; // { "YYYY-MM": { category: count } }
+  rows.forEach(r => {
+    if (!r.published_date) return;
+    const ym = r.published_date.slice(0, 7);
+    if (!monthly[ym]) monthly[ym] = {};
+    monthly[ym][r.category] = (monthly[ym][r.category] || 0) + 1;
+  });
+  const months = Object.keys(monthly).sort();
+
+  new Chart(document.getElementById("monthlyChart"), {
+    type: "bar",
+    data: {
+      labels: months.map(monthLabel),
+      datasets: CATEGORY_ORDER
+        .filter(cat => months.some(m => monthly[m][cat]))
+        .map(cat => ({
+          label: cat,
+          data: months.map(m => monthly[m][cat] || 0),
+          backgroundColor: CATEGORY_COLORS[cat],
+        })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+      },
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+
+  // ---- Cumulative growth chart (based on archived_on, always present) ----
+  const byArchivedDay = {};
+  rows.forEach(r => {
+    const d = r.archived_on || "άγνωστο";
+    byArchivedDay[d] = (byArchivedDay[d] || 0) + 1;
+  });
+  const days = Object.keys(byArchivedDay).sort();
+  let running = 0;
+  const cumulative = days.map(d => (running += byArchivedDay[d]));
+
+  new Chart(document.getElementById("cumulativeChart"), {
+    type: "line",
+    data: {
+      labels: days,
+      datasets: [{
+        label: "Σύνολο εγγραφών",
+        data: cumulative,
+        borderColor: "#0B1F3A",
+        backgroundColor: "rgba(11,31,58,0.12)",
+        fill: true,
+        tension: 0.25,
+        pointRadius: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } },
+    },
+  });
+
+  // ---- Category distribution donut ----
+  const byCategory = {};
+  rows.forEach(r => { byCategory[r.category] = (byCategory[r.category] || 0) + 1; });
+  const catLabels = CATEGORY_ORDER.filter(c => byCategory[c]);
+
+  new Chart(document.getElementById("categoryChart"), {
+    type: "doughnut",
+    data: {
+      labels: catLabels,
+      datasets: [{
+        data: catLabels.map(c => byCategory[c]),
+        backgroundColor: catLabels.map(c => CATEGORY_COLORS[c]),
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+
+  document.getElementById("status").style.display = "none";
+  document.getElementById("content").style.display = "block";
+}
+
+main();
+</script>
+
+</body>
+</html>
