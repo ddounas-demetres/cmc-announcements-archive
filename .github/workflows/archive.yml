@@ -1,1 +1,37 @@
 
+name: Archive Announcements
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # καθημερινά στις 03:00 UTC (~06:00 ώρα Ελλάδας)
+  workflow_dispatch:        # επιτρέπει και χειροκίνητη εκτέλεση από το tab Actions
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Run archive script
+        run: python archive.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "cmc-archive-bot"
+          git config user.email "actions@github.com"
+          git add archive.csv
+          if git diff --cached --quiet; then
+            echo "Δεν βρέθηκαν νέες ανακοινώσεις — τίποτα για commit."
+          else
+            git commit -m "Ενημέρωση αρχείου ανακοινώσεων ($(date -u +'%Y-%m-%d'))"
+            git push
+          fi
