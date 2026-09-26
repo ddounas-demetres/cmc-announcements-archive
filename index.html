@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Στατιστικά Ανακοινώσεων — Τμήμα Επικοινωνίας, Μέσων και Πολιτισμού</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
+        onerror="var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js'; document.head.appendChild(s);"></script>
 <style>
   :root {
     --navy: #0B1F3A;
@@ -209,130 +210,144 @@ function setStatus(msg) {
   document.getElementById("status").textContent = msg;
 }
 
+function waitForChart(timeoutMs) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    (function check() {
+      if (typeof Chart !== "undefined") return resolve(true);
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      setTimeout(check, 150);
+    })();
+  });
+}
+
 async function main() {
-  let text;
   try {
     const res = await fetch("archive.csv", { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    text = await res.text();
-  } catch (err) {
-    setStatus("Δεν ήταν δυνατή η φόρτωση του archive.csv (" + err.message + "). Βεβαιωθείτε ότι αυτό το αρχείο βρίσκεται στον ίδιο φάκελο.");
-    return;
-  }
+    if (!res.ok) throw new Error("Δεν βρέθηκε το archive.csv (HTTP " + res.status + ")");
+    const text = await res.text();
 
-  const rows = parseCSV(text);
-  if (!rows.length) {
-    setStatus("Το archive.csv δεν περιέχει ακόμη δεδομένα.");
-    return;
-  }
+    const chartReady = await waitForChart(8000);
+    if (!chartReady) {
+      throw new Error("Η βιβλιοθήκη γραφημάτων (Chart.js) δεν φορτώθηκε από καμία πηγή — πιθανόν μπλοκαρισμένη από το δίκτυο ή κάποιο πρόγραμμα ασφαλείας.");
+    }
 
-  // ---- Summary cards ----
-  const total = rows.length;
-  const categoriesPresent = [...new Set(rows.map(r => r.category))];
-  const archivedDates = rows.map(r => r.archived_on).filter(Boolean).sort();
-  const lastUpdate = archivedDates.length ? archivedDates[archivedDates.length - 1] : "—";
-  const publishedDates = rows.map(r => r.published_date).filter(Boolean).sort();
-  const earliest = publishedDates.length ? publishedDates[0] : (archivedDates[0] || "—");
+    const rows = parseCSV(text);
+    if (!rows.length) {
+      throw new Error("Το archive.csv δεν περιέχει ακόμη δεδομένα.");
+    }
 
-  const summaryGrid = document.getElementById("summaryGrid");
-  const cards = [
-    { number: total, label: "Σύνολο ανακοινώσεων" },
-    { number: categoriesPresent.length, label: "Κατηγορίες" },
-    { number: earliest, label: "Παλαιότερη καταγραφή" },
-    { number: lastUpdate, label: "Τελευταία ενημέρωση" },
-  ];
-  summaryGrid.innerHTML = cards.map(c =>
-    `<div class="summary-card"><div class="number">${c.number}</div><div class="label">${c.label}</div></div>`
-  ).join("");
+    // ---- Summary cards ----
+    const total = rows.length;
+    const categoriesPresent = [...new Set(rows.map(r => r.category))];
+    const archivedDates = rows.map(r => r.archived_on).filter(Boolean).sort();
+    const lastUpdate = archivedDates.length ? archivedDates[archivedDates.length - 1] : "—";
+    const publishedDates = rows.map(r => r.published_date).filter(Boolean).sort();
+    const earliest = publishedDates.length ? publishedDates[0] : (archivedDates[0] || "—");
 
-  // ---- Monthly chart (only rows with a real published_date) ----
-  const monthly = {}; // { "YYYY-MM": { category: count } }
-  rows.forEach(r => {
-    if (!r.published_date) return;
-    const ym = r.published_date.slice(0, 7);
-    if (!monthly[ym]) monthly[ym] = {};
-    monthly[ym][r.category] = (monthly[ym][r.category] || 0) + 1;
-  });
-  const months = Object.keys(monthly).sort();
+    const summaryGrid = document.getElementById("summaryGrid");
+    const cards = [
+      { number: total, label: "Σύνολο ανακοινώσεων" },
+      { number: categoriesPresent.length, label: "Κατηγορίες" },
+      { number: earliest, label: "Παλαιότερη καταγραφή" },
+      { number: lastUpdate, label: "Τελευταία ενημέρωση" },
+    ];
+    summaryGrid.innerHTML = cards.map(c =>
+      `<div class="summary-card"><div class="number">${c.number}</div><div class="label">${c.label}</div></div>`
+    ).join("");
 
-  new Chart(document.getElementById("monthlyChart"), {
-    type: "bar",
-    data: {
-      labels: months.map(monthLabel),
-      datasets: CATEGORY_ORDER
-        .filter(cat => months.some(m => monthly[m][cat]))
-        .map(cat => ({
-          label: cat,
-          data: months.map(m => monthly[m][cat] || 0),
-          backgroundColor: CATEGORY_COLORS[cat],
-        })),
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+    // ---- Monthly chart (only rows with a real published_date) ----
+    const monthly = {}; // { "YYYY-MM": { category: count } }
+    rows.forEach(r => {
+      if (!r.published_date) return;
+      const ym = r.published_date.slice(0, 7);
+      if (!monthly[ym]) monthly[ym] = {};
+      monthly[ym][r.category] = (monthly[ym][r.category] || 0) + 1;
+    });
+    const months = Object.keys(monthly).sort();
+
+    new Chart(document.getElementById("monthlyChart"), {
+      type: "bar",
+      data: {
+        labels: months.map(monthLabel),
+        datasets: CATEGORY_ORDER
+          .filter(cat => months.some(m => monthly[m][cat]))
+          .map(cat => ({
+            label: cat,
+            data: months.map(m => monthly[m][cat] || 0),
+            backgroundColor: CATEGORY_COLORS[cat],
+          })),
       },
-      plugins: { legend: { position: "bottom" } },
-    },
-  });
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+        },
+        plugins: { legend: { position: "bottom" } },
+      },
+    });
 
-  // ---- Cumulative growth chart (based on archived_on, always present) ----
-  const byArchivedDay = {};
-  rows.forEach(r => {
-    const d = r.archived_on || "άγνωστο";
-    byArchivedDay[d] = (byArchivedDay[d] || 0) + 1;
-  });
-  const days = Object.keys(byArchivedDay).sort();
-  let running = 0;
-  const cumulative = days.map(d => (running += byArchivedDay[d]));
+    // ---- Cumulative growth chart (based on archived_on, always present) ----
+    const byArchivedDay = {};
+    rows.forEach(r => {
+      const d = r.archived_on || "άγνωστο";
+      byArchivedDay[d] = (byArchivedDay[d] || 0) + 1;
+    });
+    const days = Object.keys(byArchivedDay).sort();
+    let running = 0;
+    const cumulative = days.map(d => (running += byArchivedDay[d]));
 
-  new Chart(document.getElementById("cumulativeChart"), {
-    type: "line",
-    data: {
-      labels: days,
-      datasets: [{
-        label: "Σύνολο εγγραφών",
-        data: cumulative,
-        borderColor: "#0B1F3A",
-        backgroundColor: "rgba(11,31,58,0.12)",
-        fill: true,
-        tension: 0.25,
-        pointRadius: 2,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-      plugins: { legend: { display: false } },
-    },
-  });
+    new Chart(document.getElementById("cumulativeChart"), {
+      type: "line",
+      data: {
+        labels: days,
+        datasets: [{
+          label: "Σύνολο εγγραφών",
+          data: cumulative,
+          borderColor: "#0B1F3A",
+          backgroundColor: "rgba(11,31,58,0.12)",
+          fill: true,
+          tension: 0.25,
+          pointRadius: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        plugins: { legend: { display: false } },
+      },
+    });
 
-  // ---- Category distribution donut ----
-  const byCategory = {};
-  rows.forEach(r => { byCategory[r.category] = (byCategory[r.category] || 0) + 1; });
-  const catLabels = CATEGORY_ORDER.filter(c => byCategory[c]);
+    // ---- Category distribution donut ----
+    const byCategory = {};
+    rows.forEach(r => { byCategory[r.category] = (byCategory[r.category] || 0) + 1; });
+    const catLabels = CATEGORY_ORDER.filter(c => byCategory[c]);
 
-  new Chart(document.getElementById("categoryChart"), {
-    type: "doughnut",
-    data: {
-      labels: catLabels,
-      datasets: [{
-        data: catLabels.map(c => byCategory[c]),
-        backgroundColor: catLabels.map(c => CATEGORY_COLORS[c]),
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: "bottom" } },
-    },
-  });
+    new Chart(document.getElementById("categoryChart"), {
+      type: "doughnut",
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catLabels.map(c => byCategory[c]),
+          backgroundColor: catLabels.map(c => CATEGORY_COLORS[c]),
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+      },
+    });
 
-  document.getElementById("status").style.display = "none";
-  document.getElementById("content").style.display = "block";
+    document.getElementById("status").style.display = "none";
+    document.getElementById("content").style.display = "block";
+  } catch (err) {
+    setStatus("⚠️ Σφάλμα: " + err.message);
+    console.error(err);
+  }
 }
 
 main();
